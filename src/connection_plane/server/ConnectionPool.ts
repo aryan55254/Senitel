@@ -1,0 +1,101 @@
+/**
+ * ConnectionPool
+ * 
+ * Maintains a fixed pool of warm, authenticated SSL connections to a single
+ * backend Postgres database instance.
+ * 
+ * - Always keeps exactly 10 live connections open (self-healing on socket error)
+ * - Multiplexes connections across clients via acquire() / release()
+ * - Queues callers when all connections are in use, unblocking them FIFO
+ *   as connections are returned
+ * - Handles PG wire SSL negotiation on each connection at startup
+ */
+import { Socket } from 'net';
+import { readFileSync } from 'fs';
+import { TLSSocket } from 'tls';
+
+export class ConnectionPool {
+    private connections: Socket[] = [];
+    private availableConnections: Socket[] = [];
+    private requestQueue: ((socket: Socket) => void)[] = [];
+
+    constructor(private config: { host: string; port: number }) {
+        this.initializePool();
+    }
+
+    /**
+     * Performs SSL negotiation with the backend using the PG wire protocol.
+     * Sends the SSLRequest magic bytes, waits for 'S' (accepted), then
+     * upgrades the raw TCP socket to a TLS tunnel.
+     */
+    private sslHandshake(socket: Socket) {
+        const buf = Buffer.from('0000000804d2162f', 'hex');
+        socket.write(buf);
+        socket.once('data', (chunk: Buffer) => {
+            if (chunk[0] === 0x53) {
+                const secureSocket = new TLSSocket(socket, {
+                    isServer: false,
+                    key: readFileSync('server-key.pem'),
+                    cert: readFileSync('server-cert.pem'),
+                    requestCert: true,
+                });
+                secureSocket.on('secureConnect', () => {
+                    console.log('[ConnectionPool] TLS tunnel established');
+                    this.connections.push(secureSocket);
+                    this.release(secureSocket);
+                });
+                secureSocket.on('error', () => this.handleDeadSocket(secureSocket));
+                socket.on('close', () => this.handleDeadSocket(socket));
+            }
+        });
+    }
+
+    private addSocket() {
+        const socket = new Socket();
+        socket.on('connect', () => this.sslHandshake(socket));
+        socket.connect(this.config.port, this.config.host);
+    }
+
+    /**
+     * Removes a dead socket from all tracking structures and opens
+     * a replacement to maintain the pool size invariant.
+     */
+    private handleDeadSocket(socket: Socket) {
+        this.connections = this.connections.filter(s => s !== socket);
+        this.availableConnections = this.availableConnections.filter(s => s !== socket);
+        socket.destroy();
+        if (this.connections.length < 10) {
+            this.addSocket();
+        }
+    }
+
+    private initializePool() {
+        for (let i = 0; i < 10; i++) {
+            this.addSocket();
+        }
+    }
+
+    /**
+     * Borrows a connection from the pool.
+     * If none are available, the caller is suspended until one is returned.
+     */
+    public async acquire(): Promise<Socket> {
+        if (this.availableConnections.length > 0) {
+            return this.availableConnections.pop()!;
+        }
+        return new Promise((resolve) => this.requestQueue.push(resolve));
+    }
+
+    /**
+     * Returns a connection to the pool.
+     * If callers are queued, the connection is handed directly to the next one.
+     */
+    public async release(socket: Socket) {
+        if (this.requestQueue.length > 0) {
+            const next = this.requestQueue.shift()!;
+            next(socket);
+        } else {
+            this.availableConnections.push(socket);
+        }
+    }
+}
