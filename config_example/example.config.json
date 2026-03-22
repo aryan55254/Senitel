@@ -6,21 +6,21 @@
     "capacity": 20,
     "refillPerSec": 10
   },
-  "shards": [
+  "instances": [
     {
-      "id": "shard_01",
+      "id": "instance_01",
       "host": "192.168.1.10",
-      "port": 5433
+      "port": 5432
     },
     {
-      "id": "shard_02",
+      "id": "instance_02",
       "host": "192.168.1.11",
-      "port": 5433
+      "port": 5432
     },
     {
-      "id": "shard_03",
+      "id": "instance_03",
       "host": "192.168.1.12",
-      "port": 5433
+      "port": 5432
     }
   ]
 }

@@ -3,8 +3,8 @@
  *
  * Entry point and orchestrator for the Sentinel query firewall.
  * Reads config from sentinel.config.json, initializes a warm connection
- * pool for each configured shard, then accepts incoming client connections
- * and hands them off to ProxySession.
+ * pool for each configured Postgres instance, then accepts incoming client
+ * connections and hands them off to ProxySession.
  */
 import net, { Socket } from 'net';
 import ProxySession from './ClientsConnections';
@@ -23,9 +23,9 @@ class SentinelServer {
     }
 
     private initializePools() {
-        for (const shard of config.shards) {
-            this.pools.set(shard.id, new ConnectionPool(shard));
-            console.log(`[Sentinel] Pool initialized → ${shard.id} at ${shard.host}:${shard.port}`);
+        for (const instance of config.instances) {
+            this.pools.set(instance.id, new ConnectionPool(instance));
+            console.log(`[Sentinel] Pool initialized → ${instance.id} at ${instance.host}:${instance.port}`);
         }
     }
 
@@ -39,7 +39,7 @@ class SentinelServer {
     public start() {
         this.server.listen(config.sentinel.port, () => {
             console.log(`[Sentinel] Listening on port ${config.sentinel.port}`);
-            console.log(`[Sentinel] Guarding ${config.shards.length} shard(s)`);
+            console.log(`[Sentinel] Guarding ${config.instances.length} instance(s)`);
         });
     }
 }
