@@ -9,32 +9,34 @@
  * is inspected before being forwarded to the shard.
  */
 import net, { Socket } from 'net';
-import { ShardConnectionPool } from './ConnectionPool';
+import { ConnectionPool } from './ConnectionPool';
 import { readFileSync } from 'fs';
 import { TLSSocket } from 'tls';
 import { ProtocolDecoder } from '../protocol/protocol_decoder';
 import { BackendMessageCode } from '../protocol/pg_wire_message_types';
-import { Sentinel } from '../../sentinel/Sentinel';
+import { Sentinel } from '../../senitel/Sentinel';
 
 class ProxySession {
     private backendSocket: net.Socket | null = null;
     private readonly remoteAddr: string;
     private activeRequests = 0;
-    private targetPool: ShardConnectionPool | undefined;
+    private targetPool: ConnectionPool | undefined;
     private clientdecoder = new ProtocolDecoder('frontend');
     private sharddecoder = new ProtocolDecoder('backend');
     private isFrontendPipingSetup = false;
-    private sentinel = new Sentinel({ rateLimitCapacity: 20, rateLimitPerSec: 10 });
+    private sentinel!: Sentinel;
 
     constructor(
         private clientSocket: Socket,
-        private readonly shardPools: Map<string, ShardConnectionPool>
+        private readonly pools: Map<string, ConnectionPool>,
+        rateLimitConfig: { rateLimitCapacity: number; rateLimitPerSec: number }
     ) {
         this.remoteAddr = `${clientSocket.remoteAddress}:${clientSocket.remotePort}`;
+        this.sentinel = new Sentinel(rateLimitConfig);
         this.initialize();
     }
 
-    // INITIALIZATION
+    // ── INITIALIZATION ────────────────────────────────────────────────────────
 
     private initialize() {
         console.log(`[${this.remoteAddr}] Client session initiated`);
@@ -43,7 +45,7 @@ class ProxySession {
     }
 
     private setupLifecycleHooks() {
-        this.clientSocket.once('data', (chunk) => {
+        this.clientSocket.once('data', (chunk: Buffer) => {
             if (chunk.length === 8 && chunk.readInt32BE(0) === 8 && chunk.readInt32BE(4) === 80877103) {
                 this.handleSSLrequest(this.clientSocket);
             } else {
@@ -59,7 +61,6 @@ class ProxySession {
                 this.targetPool.release(this.backendSocket);
                 this.activeRequests--;
             }
-            // Evict rate-limit bucket for this client to free memory
             this.sentinel.evict(this.remoteAddr);
         });
 
@@ -68,7 +69,7 @@ class ProxySession {
         });
     }
 
-    // HANDSHAKE / AUTH 
+    // ── HANDSHAKE / AUTH ──────────────────────────────────────────────────────
 
     private handleSSLrequest(socket: Socket) {
         socket.write('S');
@@ -80,20 +81,20 @@ class ProxySession {
         });
 
         secureSocket.on('secureConnect', () => {
-            console.log('TLS Tunnel Established!');
+            console.log(`[${this.remoteAddr}] TLS tunnel established`);
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
             this.acquireandpipe();
         });
     }
 
-    // CONNECTION ACQUISITION
+    // ── CONNECTION ACQUISITION ────────────────────────────────────────────────
 
     private async acquireandpipe() {
-        this.targetPool = this.shardPools.get('shard_01');
+        this.targetPool = this.pools.get('shard_01');
 
         if (!this.targetPool) {
-            console.error('Shard pool not found!');
+            console.error('[Sentinel] Shard pool not found');
             this.clientSocket.destroy();
             return;
         }
@@ -104,18 +105,18 @@ class ProxySession {
             this.backendSocket = socket;
             this.activeRequests++;
 
-            console.log(`[${this.remoteAddr}] Acquired backend socket from pool`);
+            console.log(`[${this.remoteAddr}] Acquired shard socket from pool`);
 
             this.setupfrontenddecodepiping(this.clientSocket);
             this.clientSocket.resume();
             this.setupbackenddecodepiping(this.backendSocket, this.clientSocket);
         } catch (err) {
-            console.error('Failed to acquire socket:', err);
+            console.error('[Sentinel] Failed to acquire socket:', err);
             this.clientSocket.destroy();
         }
     }
 
-    // DATA PIPING & DECODING 
+    // ── DATA PIPING & DECODING ────────────────────────────────────────────────
 
     private setupfrontenddecodepiping(clientSocket: Socket) {
         if (this.isFrontendPipingSetup) return;
@@ -129,12 +130,13 @@ class ProxySession {
                     await this.acquireandpipe();
                 }
 
-                // SENTINEL 
+                // ── SENTINEL ──────────────────────────────────────────────
                 const verdict = this.sentinel.inspect(msg, this.remoteAddr);
                 if (!verdict.allowed) {
                     this.clientSocket.write(verdict.errorFrame!);
                     continue;
                 }
+                // ─────────────────────────────────────────────────────────
 
                 const flushed = this.backendSocket?.write(msg.raw);
                 if (!flushed) {
@@ -160,7 +162,7 @@ class ProxySession {
                 if (msg.type === BackendMessageCode.ReadyForQuery) {
                     const status = msg.payload[0];
                     if (status === 73) {
-                        console.log(`[${this.remoteAddr}] Shard Idle. Releasing to pool.`);
+                        console.log(`[${this.remoteAddr}] Shard idle — releasing to pool`);
                         this.detachBackend();
                     }
                 }
@@ -168,7 +170,7 @@ class ProxySession {
         });
     }
 
-    // CLEANUP & POOL RELEASE
+    // ── CLEANUP & POOL RELEASE ────────────────────────────────────────────────
 
     private detachBackend() {
         if (this.backendSocket && this.targetPool) {

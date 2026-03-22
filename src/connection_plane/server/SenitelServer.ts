@@ -1,51 +1,48 @@
 /**
  * SentinelServer
- * 
+ *
  * Entry point and orchestrator for the Sentinel query firewall.
- * Initializes a warm connection pool for each configured backend database,
- * then accepts incoming client connections and hands them off to ProxySession.
- * 
- * Each backend in the config gets its own independent pool of persistent
- * connections — clients never wait for a cold connection to be established.
+ * Reads config from sentinel.config.json, initializes a warm connection
+ * pool for each configured shard, then accepts incoming client connections
+ * and hands them off to ProxySession.
  */
 import net, { Socket } from 'net';
 import ProxySession from './ClientsConnections';
 import { ConnectionPool } from './ConnectionPool';
+import { loadConfig } from '../../config/ConfigLoader';
 
-interface BackendConfig {
-    id: string;
-    host: string;
-    port: number;
-}
-
-interface SentinelServerConfig {
-    listenPort: number;
-    backends: BackendConfig[];
-}
+const config = loadConfig();
 
 class SentinelServer {
     private pools: Map<string, ConnectionPool> = new Map();
     private server: net.Server;
 
-    constructor(private config: SentinelServerConfig) {
+    constructor() {
         this.initializePools();
         this.server = net.createServer((socket) => this.handleConnection(socket));
     }
 
     private initializePools() {
-        for (const backend of this.config.backends) {
-            this.pools.set(backend.id, new ConnectionPool(backend));
-            console.log(`[Sentinel] Initialized pool for ${backend.id} at ${backend.host}:${backend.port}`);
+        for (const shard of config.shards) {
+            this.pools.set(shard.id, new ConnectionPool(shard));
+            console.log(`[Sentinel] Pool initialized → ${shard.id} at ${shard.host}:${shard.port}`);
         }
     }
 
     private handleConnection(clientSocket: Socket) {
-        new ProxySession(clientSocket, this.pools);
+        new ProxySession(clientSocket, this.pools, {
+            rateLimitCapacity: config.rateLimit.capacity,
+            rateLimitPerSec: config.rateLimit.refillPerSec,
+        });
     }
 
     public start() {
-        this.server.listen(this.config.listenPort, () => {
-            console.log(`[Sentinel] Listening on port ${this.config.listenPort}`);
+        this.server.listen(config.sentinel.port, () => {
+            console.log(`[Sentinel] Listening on port ${config.sentinel.port}`);
+            console.log(`[Sentinel] Guarding ${config.shards.length} shard(s)`);
         });
     }
 }
+
+const server = new SentinelServer();
+server.start();

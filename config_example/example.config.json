@@ -1,0 +1,26 @@
+{
+  "sentinel": {
+    "port": 5432
+  },
+  "rateLimit": {
+    "capacity": 20,
+    "refillPerSec": 10
+  },
+  "shards": [
+    {
+      "id": "shard_01",
+      "host": "192.168.1.10",
+      "port": 5433
+    },
+    {
+      "id": "shard_02",
+      "host": "192.168.1.11",
+      "port": 5433
+    },
+    {
+      "id": "shard_03",
+      "host": "192.168.1.12",
+      "port": 5433
+    }
+  ]
+}

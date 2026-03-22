@@ -1,0 +1,28 @@
+{
+  "name": "senitel",
+  "version": "1.0.0",
+  "description": "A protocol-layer query firewall that intercepts PostgreSQL wire messages to enforce per-client rate limits and block destructive SQL patterns before they reach any shard.",
+  "main": "dist/connection_plane/server/SentinelServer.js",
+  "scripts": {
+    "start": "npx ts-node --transpile-only src/connection_plane/server/SentinelServer.ts",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aryan55254/Senitel.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/aryan55254/Senitel/issues"
+  },
+  "homepage": "https://github.com/aryan55254/Senitel#readme",
+  "dependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}
