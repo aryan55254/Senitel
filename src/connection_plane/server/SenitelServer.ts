@@ -6,7 +6,8 @@
  * pool for each configured Postgres instance, then accepts incoming client
  * connections and hands them off to ProxySession.
  */
-import net, { Socket } from 'net';
+import * as net from 'net';
+import { Socket } from 'net';
 import ProxySession from './ClientsConnections';
 import { ConnectionPool } from './ConnectionPool';
 import { loadConfig } from '../../config/ConfigLoader';
@@ -19,7 +20,7 @@ class SentinelServer {
 
     constructor() {
         this.initializePools();
-        this.server = net.createServer((socket) => this.handleConnection(socket));
+        this.server = net.createServer((socket: Socket) => this.handleConnection(socket));
     }
 
     private initializePools() {

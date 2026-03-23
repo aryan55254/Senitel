@@ -11,6 +11,9 @@ export interface InstanceConfig {
     id: string;
     host: string;
     port: number;
+    user: string;
+    password?: string;
+    database?: string;
 }
 
 export interface SentinelConfig {
@@ -39,6 +42,9 @@ function validate(config: SentinelConfig) {
     for (const i of config.instances) {
         if (!i.id || !i.host || !i.port) {
             throw new Error(`[Sentinel] Invalid instance entry: ${JSON.stringify(i)}`);
+        }
+        if (!i.user || !i.password || !i.database) {
+            throw new Error(`[Sentinel] Missing auth details (user/password/database) for instance ${i.id}`);
         }
     }
 }

@@ -8,16 +8,18 @@
  * Sentinel is wired in at the message loop — every Query (Q) message
  * is inspected before being forwarded to the shard.
  */
-import net, { Socket } from 'net';
+import * as net from 'net';
+import { Socket } from 'net';
 import { ConnectionPool } from './ConnectionPool';
 import { readFileSync } from 'fs';
 import { TLSSocket } from 'tls';
 import { ProtocolDecoder } from '../protocol/protocol_decoder';
 import { BackendMessageCode } from '../protocol/pg_wire_message_types';
+import { ProtocolEncoder } from '../protocol/protocol_encoder';
 import { Sentinel } from '../../senitel/Sentinel';
 
 class ProxySession {
-    private backendSocket: net.Socket | null = null;
+    private backendSocket: Socket | null = null;
     private readonly remoteAddr: string;
     private activeRequests = 0;
     private targetPool: ConnectionPool | undefined;
@@ -51,7 +53,8 @@ class ProxySession {
             } else {
                 this.clientSocket.pause();
                 this.clientSocket.unshift(chunk);
-                this.acquireandpipe();
+                this.setupfrontenddecodepiping(this.clientSocket);
+                this.clientSocket.resume();
             }
         });
 
@@ -84,7 +87,6 @@ class ProxySession {
             console.log(`[${this.remoteAddr}] TLS tunnel established`);
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
-            this.acquireandpipe();
         });
     }
 
@@ -126,6 +128,32 @@ class ProxySession {
             const messages = this.clientdecoder.parse(chunk);
 
             for (const msg of messages) {
+                if (msg.type === 0x00) {
+                    // StartupMessage - fake login
+                    const authOk = ProtocolEncoder.encode(BackendMessageCode.AuthenticationResponse, Buffer.from([0, 0, 0, 0]));
+                    const readyForQuery = ProtocolEncoder.encode(BackendMessageCode.ReadyForQuery, Buffer.from('I'));
+
+                    this.clientSocket.write(authOk);
+
+                    const params = [
+                        ['server_version', '16.0'],
+                        ['client_encoding', 'UTF8'],
+                        ['standard_conforming_strings', 'on']
+                    ];
+                    for (const [k, v] of params) {
+                        const payload = Buffer.concat([Buffer.from(k + '\0'), Buffer.from(v + '\0')]);
+                        this.clientSocket.write(ProtocolEncoder.encode(BackendMessageCode.ParameterStatus, payload));
+                    }
+
+                    const backendKeyData = Buffer.alloc(8);
+                    backendKeyData.writeUInt32BE(1234, 0);
+                    backendKeyData.writeUInt32BE(5678, 4);
+                    this.clientSocket.write(ProtocolEncoder.encode(BackendMessageCode.BackendKeyData, backendKeyData));
+
+                    this.clientSocket.write(readyForQuery);
+                    continue;
+                }
+
                 if (!this.backendSocket) {
                     await this.acquireandpipe();
                 }

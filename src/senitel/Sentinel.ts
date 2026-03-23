@@ -13,7 +13,7 @@
  */
 import { FrontendMessageCode } from '../connection_plane/protocol/pg_wire_message_types';
 import { DecodedMessage } from '../connection_plane/protocol/protocol_decoder';
-import { ProtocolEncoder } from '../connection_plane/protocol/protocl_encoder';
+import { ProtocolEncoder } from '../connection_plane/protocol/protocol_encoder';
 import { TokenBucket } from './TokenBucket';
 import { QueryGuard } from './QueryGuard';
 import { SentinelLogger } from './SentinelLogger';

@@ -13,13 +13,15 @@
 import { Socket } from 'net';
 import { readFileSync } from 'fs';
 import { TLSSocket } from 'tls';
+import { authenticateBackend } from '../auth/PgAuth';
+import { InstanceConfig } from '../../config/ConfigLoader';
 
 export class ConnectionPool {
     private connections: Socket[] = [];
     private availableConnections: Socket[] = [];
     private requestQueue: ((socket: Socket) => void)[] = [];
 
-    constructor(private config: { host: string; port: number }) {
+    constructor(private config: InstanceConfig) {
         this.initializePool();
     }
 
@@ -39,10 +41,17 @@ export class ConnectionPool {
                     cert: readFileSync('server-cert.pem'),
                     requestCert: true,
                 });
-                secureSocket.on('secureConnect', () => {
+                secureSocket.on('secureConnect', async () => {
                     console.log('[ConnectionPool] TLS tunnel established');
-                    this.connections.push(secureSocket);
-                    this.release(secureSocket);
+                    try {
+                        await authenticateBackend(secureSocket, this.config.user!, this.config.password!, this.config.database!);
+                        console.log(`[ConnectionPool] Authenticated backed for ${this.config.id}`);
+                        this.connections.push(secureSocket);
+                        this.release(secureSocket);
+                    } catch (err) {
+                        console.error(`[ConnectionPool] Auth failed for ${this.config.id}:`, err);
+                        this.handleDeadSocket(secureSocket);
+                    }
                 });
                 secureSocket.on('error', () => this.handleDeadSocket(secureSocket));
                 socket.on('close', () => this.handleDeadSocket(socket));
