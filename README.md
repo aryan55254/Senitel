@@ -9,7 +9,12 @@ Sentinel sits between your clients and your Postgres instances. It speaks native
 ## Architecture
 ![Architecture](./public/image.png)
 
-**Connection plane** — maintains a warm pool of 10 authenticated SSL connections per instance. Multiplexes client sessions across instance connections. Speaks raw PostgreSQL wire protocol on both sides via protocol decoder and encoder.
+### Testing Environment
+- **2 Backend PostgreSQL Databases** hosted in AWS (EC2/RDS).
+- **Senitel Query Firewall** deployed on a centralized AWS EC2 instance inside the VPC.
+- **Client Testing/Benchmarking** executed from a local desktop machine testing over the open internet.
+
+**Connection plane** — maintains a warm pool of authenticated SSL connections per instance. Multiplexes thousands of client sessions concurrently across a limited pool of instance connections. Speaks raw PostgreSQL wire protocol on both sides via protocol decoder and encoder.
 
 **Sentinel firewall** — intercepts every `Query (Q)` message before it reaches an instance. Applies two checks per query:
 
@@ -30,6 +35,17 @@ Blocked queries never reach any instance. The client driver receives a valid PG 
 | `DELETE FROM table` (no WHERE) | yes |
 | `DELETE FROM table WHERE ...` | no |
 | `SELECT`, `INSERT`, `UPDATE` | no |
+
+---
+
+## Benchmark Results
+
+![Benchmark Results](./public/image%20copy.png)
+
+The built-in benchmark suite evaluates:
+1. **Allowed Protocol Queries**: Validates SSL Handshakes and startup sequence parsing.
+2. **Sentinel Protocol Guard**: Validates that Senitel correctly intercepts and blocks SQL Injection patterns (DROP, TRUNCATE) by simulating proper ErrorFrames and synchronization bits.
+3. **Pool Multiplexing & Latency**: Tests high-concurrency capability by firing 2,000 queries perfectly distributed globally across 20 concurrent connections in a `pg.Pool`, measuring the **average multiplexed proxy latency** per query (achieving ~14-15ms parsing latency across the stack).
 
 ---
 
@@ -108,12 +124,12 @@ Your Postgres instances must also have SSL enabled. If you are using a managed P
 
 ## Running
 ```bash
-npm start
+npx tsx src/connection_plane/server/SenitelServer.ts
 ```
 
-Sentinel will log pool initialization for each instance and begin accepting connections:
+Senitel will initialize pools for each instance and start listening:
 ```
-[Sentinel] Pool initialized → instance_01 at your-host:5432
+[Sentinel] Pool initialized → instance_01 at 13.201.34.134:5432
 [Sentinel] Listening on port 5432
 [Sentinel] Guarding 1 instance(s)
 ```
@@ -122,14 +138,27 @@ Sentinel will log pool initialization for each instance and begin accepting conn
 
 ## Connecting a client
 
-Point any Postgres client at your Sentinel host and port:
+You can verify Sentinel is working by running the built-in benchmark and security suite!
+
 ```bash
-psql "host=<sentinel-host> port=5432 dbname=<db> sslmode=require"
+node test-senitel-connection.js
 ```
 
-Or via connection string in any PG driver:
-```
-postgresql://user:password@<sentinel-host>:5432/dbname?sslmode=require
+Or connect via the standard Node.js `pg` driver using a standard connection string:
+```javascript
+const { Client } = require('pg');
+
+const SENITEL_PROXY_URL = `postgres://user:password@<your-aws-senitel-ip>:5432/dbname`;
+
+const client = new Client({ 
+    connectionString: SENITEL_PROXY_URL, 
+    ssl: { rejectUnauthorized: false } 
+});
+
+await client.connect();
+const res = await client.query('SELECT 1 as success_ping;');
+console.log(res.rows);
+await client.end();
 ```
 
-The client driver has no knowledge it is talking to Sentinel rather than a native Postgres instance.
+The client driver has absolutely no knowledge it is talking to Sentinel rather than a direct native Postgres instance.

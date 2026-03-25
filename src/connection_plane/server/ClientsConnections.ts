@@ -135,11 +135,9 @@ class ProxySession {
         this.isFrontendPipingSetup = true;
 
         this.clientSocket.on('data', async (chunk: Buffer) => {
-            console.log(`[${this.remoteAddr}] Frontend TLS received chunk of size ${chunk.length}`);
             const messages = this.clientdecoder.parse(chunk);
 
             for (const msg of messages) {
-                console.log(`[${this.remoteAddr}] Processing frontend message type 0x${msg.type.toString(16)}`);
                 if (msg.type === 0x00) {
                     // StartupMessage - fake login
                     console.log(`[${this.remoteAddr}] Handing StartupMessage (Type 0x00)`);
@@ -175,9 +173,7 @@ class ProxySession {
                 }
 
                 if (!this.backendSocket) {
-                    console.log(`[${this.remoteAddr}] No backend socket assigned. Yielding to acquireandpipe()...`);
                     await this.acquireandpipe();
-                    console.log(`[${this.remoteAddr}] acquireandpipe() finished. Target backend is ready.`);
                 }
 
                 // SENTINEL 
@@ -194,7 +190,6 @@ class ProxySession {
                 }
                 // ─────────────────────────────────────────────────────────
 
-                console.log(`[${this.remoteAddr}] Forwarding message type 0x${msg.type.toString(16)} to backend socket`);
                 const flushed = this.backendSocket?.write(msg.raw);
                 if (!flushed) {
                     console.log(`[${this.remoteAddr}] Backend socket buffer full, pausing client socket`);
@@ -210,11 +205,9 @@ class ProxySession {
 
     private async setupbackenddecodepiping(backendSocket: Socket, clientSocket: Socket) {
         this.backendSocket?.on('data', (chunk: Buffer) => {
-            console.log(`[${this.remoteAddr}] Backend TCP received chunk of size ${chunk.length}`);
             const messages = this.sharddecoder.parse(chunk);
 
             for (const msg of messages) {
-                console.log(`[${this.remoteAddr}] Processing backend message type 0x${msg.type.toString(16)}`);
                 const flushed = this.clientSocket?.write(msg.raw);
                 if (!flushed) {
                     console.log(`[${this.remoteAddr}] Client socket buffer full, pausing backend socket`);
@@ -229,7 +222,6 @@ class ProxySession {
                 if (msg.type === BackendMessageCode.ReadyForQuery) {
                     const status = msg.payload[0];
                     if (status === 73) {
-                        console.log(`[${this.remoteAddr}] Shard idle — releasing to pool`);
                         this.detachBackend();
                     }
                 }

@@ -101,12 +101,9 @@ export class ConnectionPool {
      * If none are available, the caller is suspended until one is returned.
      */
     public async acquire(): Promise<Socket> {
-        console.log(`[ConnectionPool] Acquire requested. Available: ${this.availableConnections.length}, Queued: ${this.requestQueue.length}`);
         if (this.availableConnections.length > 0) {
-            console.log(`[ConnectionPool] Handing over available connection directly.`);
             return this.availableConnections.pop()!;
         }
-        console.log(`[ConnectionPool] No available connections. Queuing request.`);
         return new Promise((resolve) => this.requestQueue.push(resolve));
     }
 
@@ -115,13 +112,10 @@ export class ConnectionPool {
      * If callers are queued, the connection is handed directly to the next one.
      */
     public async release(socket: Socket) {
-        console.log(`[ConnectionPool] Socket released back to pool.`);
         if (this.requestQueue.length > 0) {
-            console.log(`[ConnectionPool] Handing released socket directly to queued caller.`);
             const next = this.requestQueue.shift()!;
             next(socket);
         } else {
-            console.log(`[ConnectionPool] Returning socket to available pool.`);
             this.availableConnections.push(socket);
         }
     }
