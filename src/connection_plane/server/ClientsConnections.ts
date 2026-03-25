@@ -87,6 +87,7 @@ class ProxySession {
 
         secureSocket.on('secure', () => {
             console.log(`[${this.remoteAddr}] TLS tunnel established`);
+
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
         });
@@ -164,6 +165,12 @@ class ProxySession {
 
                     this.clientSocket.write(readyForQuery);
                     console.log(`[${this.remoteAddr}] Finished StartupMessage mock flow`);
+                    continue;
+                }
+
+                if (msg.type === 0x58) {
+                    console.log(`[${this.remoteAddr}] Intercepted Terminate (0x58). Closing client session, preserving backend socket!`);
+                    this.clientSocket.end();
                     continue;
                 }
 
