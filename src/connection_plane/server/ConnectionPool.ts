@@ -31,19 +31,22 @@ export class ConnectionPool {
      * upgrades the raw TCP socket to a TLS tunnel.
      */
     private sslHandshake(socket: Socket) {
+        console.log(`[ConnectionPool] Starting SSL Handshake for ${this.config.id}`);
         const buf = Buffer.from('0000000804d2162f', 'hex');
         socket.write(buf);
         socket.once('data', (chunk: Buffer) => {
+            console.log(`[ConnectionPool] SSL Handshake response for ${this.config.id}: ${chunk[0].toString(16)}`);
             if (chunk[0] === 0x53) {
                 const secureSocket = new TLSSocket(socket, {
                     isServer: false,
                     ca: [readFileSync('server-cert.pem')],
                 });
                 secureSocket.on('secureConnect', async () => {
-                    console.log('[ConnectionPool] TLS tunnel established');
+                    console.log(`[ConnectionPool] TLS tunnel established for ${this.config.id}`);
                     try {
+                        console.log(`[ConnectionPool] Authenticating backend for ${this.config.id}...`);
                         await authenticateBackend(secureSocket, this.config.user!, this.config.password!, this.config.database!);
-                        console.log(`[ConnectionPool] Authenticated backed for ${this.config.id}`);
+                        console.log(`[ConnectionPool] Authenticated backend for ${this.config.id} successfully!`);
                         this.connections.push(secureSocket);
                         this.release(secureSocket);
                     } catch (err) {
@@ -97,9 +100,12 @@ export class ConnectionPool {
      * If none are available, the caller is suspended until one is returned.
      */
     public async acquire(): Promise<Socket> {
+        console.log(`[ConnectionPool] Acquire requested. Available: ${this.availableConnections.length}, Queued: ${this.requestQueue.length}`);
         if (this.availableConnections.length > 0) {
+            console.log(`[ConnectionPool] Handing over available connection directly.`);
             return this.availableConnections.pop()!;
         }
+        console.log(`[ConnectionPool] No available connections. Queuing request.`);
         return new Promise((resolve) => this.requestQueue.push(resolve));
     }
 
@@ -108,10 +114,13 @@ export class ConnectionPool {
      * If callers are queued, the connection is handed directly to the next one.
      */
     public async release(socket: Socket) {
+        console.log(`[ConnectionPool] Socket released back to pool.`);
         if (this.requestQueue.length > 0) {
+            console.log(`[ConnectionPool] Handing released socket directly to queued caller.`);
             const next = this.requestQueue.shift()!;
             next(socket);
         } else {
+            console.log(`[ConnectionPool] Returning socket to available pool.`);
             this.availableConnections.push(socket);
         }
     }

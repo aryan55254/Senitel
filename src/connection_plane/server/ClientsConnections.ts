@@ -134,11 +134,14 @@ class ProxySession {
         this.isFrontendPipingSetup = true;
 
         this.clientSocket.on('data', async (chunk: Buffer) => {
+            console.log(`[${this.remoteAddr}] Frontend TLS received chunk of size ${chunk.length}`);
             const messages = this.clientdecoder.parse(chunk);
 
             for (const msg of messages) {
+                console.log(`[${this.remoteAddr}] Processing frontend message type 0x${msg.type.toString(16)}`);
                 if (msg.type === 0x00) {
                     // StartupMessage - fake login
+                    console.log(`[${this.remoteAddr}] Handing StartupMessage (Type 0x00)`);
                     const authOk = ProtocolEncoder.encode(BackendMessageCode.AuthenticationResponse, Buffer.from([0, 0, 0, 0]));
                     const readyForQuery = ProtocolEncoder.encode(BackendMessageCode.ReadyForQuery, Buffer.from('I'));
 
@@ -160,11 +163,14 @@ class ProxySession {
                     this.clientSocket.write(ProtocolEncoder.encode(BackendMessageCode.BackendKeyData, backendKeyData));
 
                     this.clientSocket.write(readyForQuery);
+                    console.log(`[${this.remoteAddr}] Finished StartupMessage mock flow`);
                     continue;
                 }
 
                 if (!this.backendSocket) {
+                    console.log(`[${this.remoteAddr}] No backend socket assigned. Yielding to acquireandpipe()...`);
                     await this.acquireandpipe();
+                    console.log(`[${this.remoteAddr}] acquireandpipe() finished. Target backend is ready.`);
                 }
 
                 // SENTINEL 
@@ -175,10 +181,15 @@ class ProxySession {
                 }
                 // ─────────────────────────────────────────────────────────
 
+                console.log(`[${this.remoteAddr}] Forwarding message type 0x${msg.type.toString(16)} to backend socket`);
                 const flushed = this.backendSocket?.write(msg.raw);
                 if (!flushed) {
+                    console.log(`[${this.remoteAddr}] Backend socket buffer full, pausing client socket`);
                     this.clientSocket.pause();
-                    this.backendSocket?.once('drain', () => this.clientSocket.resume());
+                    this.backendSocket?.once('drain', () => {
+                        console.log(`[${this.remoteAddr}] Backend socket drained, resuming client socket`);
+                        this.clientSocket.resume();
+                    });
                 }
             }
         });
@@ -186,13 +197,19 @@ class ProxySession {
 
     private async setupbackenddecodepiping(backendSocket: Socket, clientSocket: Socket) {
         this.backendSocket?.on('data', (chunk: Buffer) => {
+            console.log(`[${this.remoteAddr}] Backend TCP received chunk of size ${chunk.length}`);
             const messages = this.sharddecoder.parse(chunk);
 
             for (const msg of messages) {
+                console.log(`[${this.remoteAddr}] Processing backend message type 0x${msg.type.toString(16)}`);
                 const flushed = this.clientSocket?.write(msg.raw);
                 if (!flushed) {
+                    console.log(`[${this.remoteAddr}] Client socket buffer full, pausing backend socket`);
                     this.clientSocket.pause();
-                    this.backendSocket?.once('drain', () => this.clientSocket.resume());
+                    this.backendSocket?.once('drain', () => {
+                        console.log(`[${this.remoteAddr}] Client socket drained, resuming backend socket`);
+                        this.clientSocket.resume();
+                    });
                 }
 
                 // MULTIPLEXING TRIGGER

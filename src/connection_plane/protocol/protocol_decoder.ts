@@ -27,6 +27,7 @@ export class ProtocolDecoder {
      * Called every time the socket emits a 'data' chunk.
      */
     public parse(chunk: Buffer) {
+        console.log(`[ProtocolDecoder:${this.mode}] Received chunk of ${chunk.length} bytes`);
         this.accumulator = Buffer.concat([this.accumulator, chunk]);
         const messages: DecodedMessage[] = [];
 
@@ -61,6 +62,7 @@ export class ProtocolDecoder {
                 payload: this.ishandshakecomplete ? rawMessage.subarray(5) : rawMessage.subarray(4),
                 raw: rawMessage
             });
+            console.log(`[ProtocolDecoder:${this.mode}] Successfully parsed message of type ${type.toString(16)} (size: ${totalSize})`);
 
             // CLEANUP & STATE UPDATE
             this.accumulator = this.accumulator.subarray(totalSize);
