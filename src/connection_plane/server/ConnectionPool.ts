@@ -37,8 +37,7 @@ export class ConnectionPool {
             if (chunk[0] === 0x53) {
                 const secureSocket = new TLSSocket(socket, {
                     isServer: false,
-                    key: readFileSync('server-key.pem'),
-                    cert: readFileSync('server-cert.pem'),
+                    ca: [readFileSync('server-cert.pem')],
                 });
                 secureSocket.on('secureConnect', async () => {
                     console.log('[ConnectionPool] TLS tunnel established');
