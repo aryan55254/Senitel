@@ -40,6 +40,7 @@ export class ConnectionPool {
                 const secureSocket = require('tls').connect({
                     socket: socket,
                     ca: [readFileSync('server-cert.pem')],
+                    rejectUnauthorized: false,
                 });
                 secureSocket.on('secureConnect', async () => {
                     console.log(`[ConnectionPool] TLS tunnel established for ${this.config.id}`);
