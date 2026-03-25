@@ -17,11 +17,13 @@ export interface DecodedMessage {
 
 export class ProtocolDecoder {
 
-    constructor(private mode: 'frontend' | 'backend') { }
-
     private accumulator: Buffer = Buffer.alloc(0);
+    private ishandshakecomplete: boolean;
 
-    private ishandshakecomplete: boolean = false;
+    constructor(private mode: 'frontend' | 'backend') {
+        // Backend sockets are already past the handshake phase when they are acquired
+        this.ishandshakecomplete = mode === 'backend';
+    }
 
     /**
      * Called every time the socket emits a 'data' chunk.
@@ -80,7 +82,7 @@ export class ProtocolDecoder {
 
     public reset() {
         this.accumulator = Buffer.alloc(0);
-        this.ishandshakecomplete = false;
+        this.ishandshakecomplete = this.mode === 'backend';
     }
 
 }
