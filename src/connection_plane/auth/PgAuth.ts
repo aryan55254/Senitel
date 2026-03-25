@@ -35,9 +35,9 @@ export function authenticateBackend(socket: Socket, user: string, password: stri
                     if (authType === 0) {
                         state = 'AUTHENTICATED';
                     } else if (authType === 10) {
-                        const mechanism = payload.toString('utf8', 4).replace(/\0/g, '');
-                        if (mechanism !== 'SCRAM-SHA-256') {
-                            return onError(new Error(`Unsupported SASL mechanism: ${mechanism}`));
+                        const mechanisms = payload.toString('utf8', 4).split('\0').filter(m => m.length > 0);
+                        if (!mechanisms.includes('SCRAM-SHA-256')) {
+                            return onError(new Error(`Unsupported SASL mechanisms: ${mechanisms.join(', ')}`));
                         }
 
                         const mechBuf = Buffer.from('SCRAM-SHA-256\0');
