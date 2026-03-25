@@ -44,13 +44,18 @@ class ProxySession {
         console.log(`[${this.remoteAddr}] Client session initiated`);
         this.clientSocket.pause();
         this.setupLifecycleHooks();
+        this.clientSocket.resume();
+        console.log(`[${this.remoteAddr}] Socket resumed, waiting for initial handshake data...`);
     }
 
     private setupLifecycleHooks() {
         this.clientSocket.once('data', (chunk: Buffer) => {
+            console.log(`[${this.remoteAddr}] Received initial chunk of length: ${chunk.length}`);
             if (chunk.length === 8 && chunk.readInt32BE(0) === 8 && chunk.readInt32BE(4) === 80877103) {
+                console.log(`[${this.remoteAddr}] Detected Postgres SSLRequest`);
                 this.handleSSLrequest(this.clientSocket);
             } else {
+                console.log(`[${this.remoteAddr}] Standard startup message, bypassing SSL`);
                 this.clientSocket.pause();
                 this.clientSocket.unshift(chunk);
                 this.setupfrontenddecodepiping(this.clientSocket);
@@ -74,9 +79,12 @@ class ProxySession {
 
     // HANDSHAKE / AUTH 
     private handleSSLrequest(socket: Socket) {
+        console.log(`[${this.remoteAddr}] Sending 'S' to acknowledge SSL`);
         socket.write('S');
+
         // remove the data listeners so that no data that is sent during the transition causes a hang 
         socket.removeAllListeners('data');
+        console.log(`[${this.remoteAddr}] Upgrading socket to TLSSocket...`);
         const secureSocket = new TLSSocket(socket, {
             isServer: true,
             key: readFileSync('server-key.pem'),
@@ -85,13 +93,13 @@ class ProxySession {
         });
 
         secureSocket.on('secure', () => {
-            console.log(`[${this.remoteAddr}] TLS tunnel established`);
+            console.log(`[${this.remoteAddr}] TLS tunnel established successfully`);
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
         });
 
         secureSocket.on('error', (err) => {
-            console.error('TLS Error:', err);
+            console.error(`[${this.remoteAddr}] TLS Error:`, err);
             this.clientSocket.destroy();
         });
     }
