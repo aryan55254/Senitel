@@ -75,16 +75,16 @@ class ProxySession {
     // HANDSHAKE / AUTH 
     private handleSSLrequest(socket: Socket) {
         socket.write('S');
-        // remove the data listeners so that no data that si sent during the transition causes a hang 
+        // remove the data listeners so that no data that is sent during the transition causes a hang 
         socket.removeAllListeners('data');
         const secureSocket = new TLSSocket(socket, {
             isServer: true,
             key: readFileSync('server-key.pem'),
             cert: readFileSync('server-cert.pem'),
-            requestCert: true,
+            requestCert: false,
         });
 
-        secureSocket.on('secureConnect', () => {
+        secureSocket.on('secure', () => {
             console.log(`[${this.remoteAddr}] TLS tunnel established`);
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
