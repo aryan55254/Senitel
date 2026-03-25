@@ -12,22 +12,22 @@
 export class QueryGuard {
   private static readonly RULES: [RegExp, string, string][] = [
     [
-      /^\s*drop\s+(table|database|index|schema)\b/i,
+      /(?:\s|^)drop\s+(table|database|index|schema)\b/i,
       'DROP statements are blocked by Sentinel',
       '42501',
     ],
     [
-      /^\s*truncate\b/i,
+      /(?:\s|^)truncate\b/i,
       'TRUNCATE is blocked by Sentinel',
       '42501',
     ],
     [
-      /^\s*alter\s+table\b/i,
+      /(?:\s|^)alter\s+table\b/i,
       'ALTER TABLE is blocked by Sentinel',
       '42501',
     ],
     [
-      /^\s*delete\s+from\b(?![\s\S]*\bwhere\b)/i,
+      /(?:\s|^)delete\s+from\b(?![\s\S]*\bwhere\b)/i,
       'Unguarded DELETE (no WHERE clause) is blocked by Sentinel',
       '42501',
     ],
