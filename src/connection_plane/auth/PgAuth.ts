@@ -41,10 +41,10 @@ export function authenticateBackend(socket: Socket, user: string, password: stri
                         }
 
                         const mechBuf = Buffer.from('SCRAM-SHA-256\0');
-                        const clientFirstBare = `n=*,r=${clientNonce}`;          // ← fixed
+                        const clientFirstBare = `n=*,r=${clientNonce}`;
                         const clientFirstMessage = `n,,${clientFirstBare}`;
                         const cfmBuf = Buffer.from(clientFirstMessage);
-                        authMessage = clientFirstBare + ',';                      // ← fixed
+                        authMessage = clientFirstBare + ',';
 
                         const payloadBuf = Buffer.alloc(mechBuf.length + 4 + cfmBuf.length);
                         mechBuf.copy(payloadBuf, 0);
@@ -54,8 +54,8 @@ export function authenticateBackend(socket: Socket, user: string, password: stri
                         socket.write(ProtocolEncoder.encode(FrontendMessageCode.Password, payloadBuf));
                         state = 'SASL_INITIAL';
                     } else if (authType === 11) {
-                        const serverFirstMessage = payload.toString('utf8', 4);
-                        authMessage += serverFirstMessage + ',';                  // ← correct
+                        const serverFirstMessage = payload.toString('utf8', 4).replace(/\0/g, '');
+                        authMessage += serverFirstMessage + ',';
 
                         const parts = serverFirstMessage.split(',');
                         for (const part of parts) {
@@ -84,7 +84,6 @@ export function authenticateBackend(socket: Socket, user: string, password: stri
                         socket.write(ProtocolEncoder.encode(FrontendMessageCode.Password, Buffer.from(clientFinalMessage)));
                         state = 'SASL_FINAL';
                     } else if (authType === 12) {
-                        // server signature verification — optional, skipping for now
                     } else {
                         return onError(new Error(`Unsupported authentication type: ${authType}`));
                     }
