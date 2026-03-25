@@ -41,21 +41,16 @@ class ProxySession {
     // INITIALIZATION 
 
     private initialize() {
-        console.log(`[${this.remoteAddr}] Client session initiated`);
         this.clientSocket.pause();
         this.setupLifecycleHooks();
         this.clientSocket.resume();
-        console.log(`[${this.remoteAddr}] Socket resumed, waiting for initial handshake data...`);
     }
 
     private setupLifecycleHooks() {
         this.clientSocket.once('data', (chunk: Buffer) => {
-            console.log(`[${this.remoteAddr}] Received initial chunk of length: ${chunk.length}`);
             if (chunk.length === 8 && chunk.readInt32BE(0) === 8 && chunk.readInt32BE(4) === 80877103) {
-                console.log(`[${this.remoteAddr}] Detected Postgres SSLRequest`);
                 this.handleSSLrequest(this.clientSocket);
             } else {
-                console.log(`[${this.remoteAddr}] Standard startup message, bypassing SSL`);
                 this.clientSocket.pause();
                 this.clientSocket.unshift(chunk);
                 this.setupfrontenddecodepiping(this.clientSocket);
@@ -79,12 +74,10 @@ class ProxySession {
 
     // HANDSHAKE / AUTH 
     private handleSSLrequest(socket: Socket) {
-        console.log(`[${this.remoteAddr}] Sending 'S' to acknowledge SSL`);
         socket.write('S');
 
         // remove the data listeners so that no data that is sent during the transition causes a hang 
         socket.removeAllListeners('data');
-        console.log(`[${this.remoteAddr}] Upgrading socket to TLSSocket...`);
         const secureSocket = new TLSSocket(socket, {
             isServer: true,
             key: readFileSync('server-key.pem'),
@@ -93,7 +86,7 @@ class ProxySession {
         });
 
         secureSocket.on('secure', () => {
-            console.log(`[${this.remoteAddr}] TLS tunnel established successfully`);
+            console.log(`[${this.remoteAddr}] TLS tunnel established`);
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
         });
@@ -107,10 +100,12 @@ class ProxySession {
     // CONNECTION ACQUISITION 
 
     private async acquireandpipe() {
-        this.targetPool = this.pools.get('shard_01');
+        // Grab the first available pool (e.g. 'instance_01')
+        const firstAvailablePoolId = Array.from(this.pools.keys())[0];
+        this.targetPool = this.pools.get(firstAvailablePoolId);
 
         if (!this.targetPool) {
-            console.error('[Sentinel] Shard pool not found');
+            console.error('[Sentinel] Shard pool not found for ID:', firstAvailablePoolId);
             this.clientSocket.destroy();
             return;
         }
