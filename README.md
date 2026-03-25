@@ -1,8 +1,8 @@
-# Sentinel
+# Senitel
 
 A protocol-layer query firewall that intercepts PostgreSQL wire messages to enforce per-client rate limits and block destructive SQL patterns before they reach any Postgres instance.
 
-Sentinel sits between your clients and your Postgres instances. It speaks native PostgreSQL wire protocol — any client driver connects to it exactly as it would to a regular Postgres instance. Blocked queries receive a proper PG error response. Nothing reaches your instances that Sentinel does not allow through.
+Senitel sits between your clients and your Postgres instances. It speaks native PostgreSQL wire protocol — any client driver connects to it exactly as it would to a regular Postgres instance. Blocked queries receive a proper PG error response. Nothing reaches your instances that Sentinel does not allow through.
 
 ---
 
@@ -16,7 +16,7 @@ Sentinel sits between your clients and your Postgres instances. It speaks native
 
 **Connection plane** — maintains a warm pool of authenticated SSL connections per instance. Multiplexes thousands of client sessions concurrently across a limited pool of instance connections. Speaks raw PostgreSQL wire protocol on both sides via protocol decoder and encoder.
 
-**Sentinel firewall** — intercepts every `Query (Q)` message before it reaches an instance. Applies two checks per query:
+**Senitel firewall** — intercepts every `Query (Q)` message before it reaches an instance. Applies two checks per query:
 
 1. **SQL Firewall** — Inspects SQL text via `QueryGuard`. Protects against accidental mass-deletions or drops.
 2. **Query guard** — blocks `DROP`, `TRUNCATE`, `ALTER TABLE`, and unguarded `DELETE` (no WHERE clause). Returns `SQLSTATE 42501`. Safe queries pass through unchanged.
@@ -25,7 +25,7 @@ Blocked queries never reach any instance. The client driver receives a valid PG 
 
 ---
 
-## What Sentinel blocks
+## What Senitel blocks
 
 | Statement | Blocked |
 |---|---|
@@ -103,9 +103,9 @@ Edit `sentinel.config.json`:
 
 ## SSL
 
-Sentinel must be hosted on a machine with SSL certificates configured. Clients connect to Sentinel over SSL and Sentinel connects to your Postgres instances over SSL.
+Senitel must be hosted on a machine with SSL certificates configured. Clients connect to Senitel over SSL and Senitel connects to your Postgres instances over SSL.
 
-**You are responsible for provisioning and managing your own certificates.** Sentinel reads `server-key.pem` and `server-cert.pem` from the project root. Place your certificates there before starting.
+**You are responsible for provisioning and managing your own certificates.** Senitel reads `server-key.pem` and `server-cert.pem` from the project root. Place your certificates there before starting.
 
 For a self-signed cert (testing only):
 ```bash
@@ -138,7 +138,7 @@ Senitel will initialize pools for each instance and start listening:
 
 ## Connecting a client
 
-You can verify Sentinel is working by running the built-in benchmark and security suite!
+You can verify Senitel is working by running the built-in benchmark and security suite!
 
 ```bash
 node test-senitel-connection.js
@@ -161,4 +161,4 @@ console.log(res.rows);
 await client.end();
 ```
 
-The client driver has absolutely no knowledge it is talking to Sentinel rather than a direct native Postgres instance.
+The client driver has absolutely no knowledge it is talking to Senitel rather than a direct native Postgres instance.
