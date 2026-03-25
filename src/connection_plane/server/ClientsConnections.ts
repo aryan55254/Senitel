@@ -38,7 +38,7 @@ class ProxySession {
         this.initialize();
     }
 
-    // ── INITIALIZATION ────────────────────────────────────────────────────────
+    // INITIALIZATION 
 
     private initialize() {
         console.log(`[${this.remoteAddr}] Client session initiated`);
@@ -72,10 +72,11 @@ class ProxySession {
         });
     }
 
-    // ── HANDSHAKE / AUTH ──────────────────────────────────────────────────────
-
+    // HANDSHAKE / AUTH 
     private handleSSLrequest(socket: Socket) {
         socket.write('S');
+        // remove the data listeners so that no data that si sent during the transition causes a hang 
+        socket.removeAllListeners('data');
         const secureSocket = new TLSSocket(socket, {
             isServer: true,
             key: readFileSync('server-key.pem'),
@@ -88,9 +89,14 @@ class ProxySession {
             this.clientSocket = secureSocket;
             this.setupfrontenddecodepiping(this.clientSocket);
         });
+
+        secureSocket.on('error', (err) => {
+            console.error('TLS Error:', err);
+            this.clientSocket.destroy();
+        });
     }
 
-    // ── CONNECTION ACQUISITION ────────────────────────────────────────────────
+    // CONNECTION ACQUISITION 
 
     private async acquireandpipe() {
         this.targetPool = this.pools.get('shard_01');
@@ -118,7 +124,7 @@ class ProxySession {
         }
     }
 
-    // ── DATA PIPING & DECODING ────────────────────────────────────────────────
+    // DATA PIPING & DECODING 
 
     private setupfrontenddecodepiping(clientSocket: Socket) {
         if (this.isFrontendPipingSetup) return;
@@ -158,7 +164,7 @@ class ProxySession {
                     await this.acquireandpipe();
                 }
 
-                // ── SENTINEL ──────────────────────────────────────────────
+                // SENTINEL 
                 const verdict = this.sentinel.inspect(msg, this.remoteAddr);
                 if (!verdict.allowed) {
                     this.clientSocket.write(verdict.errorFrame!);
@@ -198,7 +204,7 @@ class ProxySession {
         });
     }
 
-    // ── CLEANUP & POOL RELEASE ────────────────────────────────────────────────
+    // CLEANUP & POOL RELEASE 
 
     private detachBackend() {
         if (this.backendSocket && this.targetPool) {
