@@ -37,8 +37,8 @@ export class ConnectionPool {
         socket.once('data', (chunk: Buffer) => {
             console.log(`[ConnectionPool] SSL Handshake response for ${this.config.id}: ${chunk[0].toString(16)}`);
             if (chunk[0] === 0x53) {
-                const secureSocket = new TLSSocket(socket, {
-                    isServer: false,
+                const secureSocket = require('tls').connect({
+                    socket: socket,
                     ca: [readFileSync('server-cert.pem')],
                 });
                 secureSocket.on('secureConnect', async () => {
@@ -54,7 +54,7 @@ export class ConnectionPool {
                         this.handleDeadSocket(secureSocket);
                     }
                 });
-                secureSocket.on('error', (err) => {
+                secureSocket.on('error', (err: any) => {
                     console.error(`[ConnectionPool] TLS Error for ${this.config.id}:`, err.message);
                     this.handleDeadSocket(secureSocket);
                 });
