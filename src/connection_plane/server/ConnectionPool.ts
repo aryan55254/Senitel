@@ -39,7 +39,6 @@ export class ConnectionPool {
                     isServer: false,
                     key: readFileSync('server-key.pem'),
                     cert: readFileSync('server-cert.pem'),
-                    requestCert: true,
                 });
                 secureSocket.on('secureConnect', async () => {
                     console.log('[ConnectionPool] TLS tunnel established');
@@ -53,8 +52,14 @@ export class ConnectionPool {
                         this.handleDeadSocket(secureSocket);
                     }
                 });
-                secureSocket.on('error', () => this.handleDeadSocket(secureSocket));
+                secureSocket.on('error', (err) => {
+                    console.error(`[ConnectionPool] TLS Error for ${this.config.id}:`, err.message);
+                    this.handleDeadSocket(secureSocket);
+                });
                 socket.on('close', () => this.handleDeadSocket(socket));
+            } else if (chunk[0] === 0x4e) {
+                console.error(`[ConnectionPool] Backend ${this.config.id} does NOT support SSL! (Sent N)`);
+                this.handleDeadSocket(socket);
             }
         });
     }
@@ -73,9 +78,13 @@ export class ConnectionPool {
         this.connections = this.connections.filter(s => s !== socket);
         this.availableConnections = this.availableConnections.filter(s => s !== socket);
         socket.destroy();
-        if (this.connections.length < 10) {
-            this.addSocket();
-        }
+
+        // Prevent infinite fast reconnect loop spam by delaying reconnect
+        setTimeout(() => {
+            if (this.connections.length < 10) {
+                this.addSocket();
+            }
+        }, 3000);
     }
 
     private initializePool() {
