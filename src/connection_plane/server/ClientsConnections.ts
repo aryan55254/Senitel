@@ -30,11 +30,10 @@ class ProxySession {
 
     constructor(
         private clientSocket: Socket,
-        private readonly pools: Map<string, ConnectionPool>,
-        rateLimitConfig: { rateLimitCapacity: number; rateLimitPerSec: number }
+        private readonly pools: Map<string, ConnectionPool>
     ) {
         this.remoteAddr = `${clientSocket.remoteAddress}:${clientSocket.remotePort}`;
-        this.sentinel = new Sentinel(rateLimitConfig);
+        this.sentinel = new Sentinel();
         this.initialize();
     }
 

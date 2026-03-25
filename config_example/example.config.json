@@ -2,10 +2,6 @@
   "sentinel": {
     "port": 5432
   },
-  "rateLimit": {
-    "capacity": 20,
-    "refillPerSec": 10
-  },
   "instances": [
     {
       "id": "instance_01",

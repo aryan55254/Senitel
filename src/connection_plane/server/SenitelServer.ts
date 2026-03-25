@@ -31,10 +31,7 @@ class SentinelServer {
     }
 
     private handleConnection(clientSocket: Socket) {
-        new ProxySession(clientSocket, this.pools, {
-            rateLimitCapacity: config.rateLimit.capacity,
-            rateLimitPerSec: config.rateLimit.refillPerSec,
-        });
+        new ProxySession(clientSocket, this.pools);
     }
 
     public start() {

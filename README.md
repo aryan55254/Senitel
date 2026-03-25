@@ -18,7 +18,7 @@ Sentinel sits between your clients and your Postgres instances. It speaks native
 
 **Sentinel firewall** — intercepts every `Query (Q)` message before it reaches an instance. Applies two checks per query:
 
-1. **Rate limiter** — token bucket per client IP. Excess queries get a `SQLSTATE 53400` error back. Configurable burst capacity and refill rate.
+1. **SQL Firewall** — Inspects SQL text via `QueryGuard`. Protects against accidental mass-deletions or drops.
 2. **Query guard** — blocks `DROP`, `TRUNCATE`, `ALTER TABLE`, and unguarded `DELETE` (no WHERE clause). Returns `SQLSTATE 42501`. Safe queries pass through unchanged.
 
 Blocked queries never reach any instance. The client driver receives a valid PG error frame and has no way to distinguish Sentinel from a native Postgres instance.

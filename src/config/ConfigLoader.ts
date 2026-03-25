@@ -2,7 +2,7 @@
  * ConfigLoader
  * Reads sentinel.config.json from the project root.
  * Validates structure and returns a typed config object.
- * All network and rate limit config lives here — nothing is hardcoded.
+ * All network config lives here — nothing is hardcoded.
  */
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
@@ -20,10 +20,6 @@ export interface SentinelConfig {
     sentinel: {
         port: number;
     };
-    rateLimit: {
-        capacity: number;
-        refillPerSec: number;
-    };
     instances: InstanceConfig[];
 }
 
@@ -36,8 +32,6 @@ export function loadConfig(path: string = 'sentinel.config.json'): SentinelConfi
 
 function validate(config: SentinelConfig) {
     if (!config.sentinel?.port) throw new Error('[Sentinel] Config missing sentinel.port');
-    if (!config.rateLimit?.capacity) throw new Error('[Sentinel] Config missing rateLimit.capacity');
-    if (!config.rateLimit?.refillPerSec) throw new Error('[Sentinel] Config missing rateLimit.refillPerSec');
     if (!config.instances?.length) throw new Error('[Sentinel] Config missing instances');
     for (const i of config.instances) {
         if (!i.id || !i.host || !i.port) {
