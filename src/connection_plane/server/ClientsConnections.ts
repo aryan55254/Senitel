@@ -184,6 +184,12 @@ class ProxySession {
                 const verdict = this.sentinel.inspect(msg, this.remoteAddr);
                 if (!verdict.allowed) {
                     this.clientSocket.write(verdict.errorFrame!);
+                    // The client driver expects the transaction to fully conclude with a ReadyForQuery frame.
+                    const readyForQuery = ProtocolEncoder.encode(BackendMessageCode.ReadyForQuery, Buffer.from('I'));
+                    this.clientSocket.write(readyForQuery);
+
+                    console.log(`[${this.remoteAddr}] Query blocked by Sentinel — releasing backend socket early.`);
+                    this.detachBackend();
                     continue;
                 }
                 // ─────────────────────────────────────────────────────────
