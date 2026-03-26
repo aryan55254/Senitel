@@ -1,8 +1,8 @@
 # Senitel
 
-A protocol-layer query firewall that intercepts PostgreSQL wire messages to enforce per-client rate limits and block destructive SQL patterns before they reach any Postgres instance.
+A protocol-layer query firewall that intercepts PostgreSQL wire messages to block destructive SQL patterns before they reach any Postgres instance.
 
-Senitel sits between your clients and your Postgres instances. It speaks native PostgreSQL wire protocol — any client driver connects to it exactly as it would to a regular Postgres instance. Blocked queries receive a proper PG error response. Nothing reaches your instances that Sentinel does not allow through.
+Senitel sits between your clients and your Postgres instances. It speaks native PostgreSQL wire protocol , any client driver connects to it exactly as it would to a regular Postgres instance. Blocked queries receive a proper PG error response. Nothing reaches your instances that Sentinel does not allow through.
 
 ---
 
