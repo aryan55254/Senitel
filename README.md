@@ -45,7 +45,7 @@ Blocked queries never reach any instance. The client driver receives a valid PG 
 The built-in benchmark suite evaluates:
 1. **Allowed Protocol Queries**: Validates SSL Handshakes and startup sequence parsing.
 2. **Sentinel Protocol Guard**: Validates that Senitel correctly intercepts and blocks SQL Injection patterns (DROP, TRUNCATE) by simulating proper ErrorFrames and synchronization bits.
-3. **Pool Multiplexing & Latency**: Tests high-concurrency capability by firing 2,000 queries perfectly distributed globally across 20 concurrent connections in a `pg.Pool`, measuring the **average multiplexed proxy latency** per query (achieving ~14-15ms parsing latency across the stack).
+3. **Pool Multiplexing & Latency**: Tests high-concurrency capability by firing 2,000 queries multiplexed efficiently across 20 concurrent connections in a `pg.Pool`, measuring the **average multiplexed proxy latency** per query (achieving ~14-15ms parsing latency across the stack).
 
 ---
 
