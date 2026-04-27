@@ -69,45 +69,58 @@ npm install
 
 ## Configuration
 
-Copy the example config and fill in your instance details:
+Copy the example configuration file and fill in your specific PostgreSQL instance details:
+
 ```bash
-cp config_examples/sentinel.config.json sentinel.config.json
+cp config_examples/example.config.json sentinel.config.json
 ```
 
-Edit `sentinel.config.json`:
+### `sentinel.config.json` Structure
+Edit the file to include your database credentials and host information:
+
 ```json
 {
   "sentinel": {
     "port": 5432
   },
-  "rateLimit": {
-    "capacity": 20,
-    "refillPerSec": 10
-  },
   "instances": [
     {
       "id": "instance_01",
-      "host": "your-instance-host",
-      "port": 5432
+      "host": "192.168.1.10",
+      "port": 5432,
+      "user": "postgres",
+      "password": "password",
+      "database": "postgres"
+    },
+    {
+      "id": "instance_02",
+      "host": "192.168.1.11",
+      "port": 5432,
+      "user": "postgres",
+      "password": "password",
+      "database": "postgres"
     }
   ]
 }
 ```
 
-- `sentinel.port` — the port Sentinel listens on for incoming clients
-- `rateLimit.capacity` — max burst queries per client before rate limiting kicks in
-- `rateLimit.refillPerSec` — token refill rate per second per client
-- `instances` — list of Postgres instances Sentinel will maintain connection pools to
+### Field Definitions
+* **`sentinel.port`**: The local port Sentinel listens on for incoming client connections.
+* **`instances`**: An array of backend PostgreSQL targets.
+    * **`id`**: A unique identifier for the instance used in Sentinel's internal logs.
+    * **`host` / `port`**: The network address of the destination Postgres server.
+    * **`user` / `password` / `database`**: Credentials used by the Connection Plane to maintain the warm connection pool.
 
 ---
 
 ## SSL
 
-Senitel must be hosted on a machine with SSL certificates configured. Clients connect to Senitel over SSL and Senitel connects to your Postgres instances over SSL.
+Sentinel requires SSL certificates to be present in the project root. Since Sentinel acts as a "Man-in-the-Middle" security layer, it must encrypt traffic between itself and the client, as well as between itself and the backend instances.
 
-**You are responsible for provisioning and managing your own certificates.** Senitel reads `server-key.pem` and `server-cert.pem` from the project root. Place your certificates there before starting.
+**Certificate Requirements:**
+1. Place `server-key.pem` and `server-cert.pem` in the project root directory.
+2. For local testing, you can generate a self-signed certificate using OpenSSL:
 
-For a self-signed cert (testing only):
 ```bash
 openssl req -x509 -newkey rsa:2048 \
   -keyout server-key.pem \
@@ -116,9 +129,7 @@ openssl req -x509 -newkey rsa:2048 \
   -subj "/CN=localhost"
 ```
 
-For production use certificates from your cloud provider or Let's Encrypt.
-
-Your Postgres instances must also have SSL enabled. If you are using a managed Postgres service (Supabase, Cloud SQL, RDS) this is enabled by default.
+> **Note:** Ensure your backend Postgres instances (RDS, Supabase, etc.) are configured to allow SSL connections, as Sentinel will attempt to upgrade all backend pool connections to SSL by default.
 
 ---
 
