@@ -49,6 +49,11 @@ The built-in benchmark suite evaluates:
 
 ---
 
+### Live Performance Demo
+[![Sentinel Live Performance Benchmark](https://img.shields.io/badge/YouTube-Watch%20Demo-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=Jwrd8jznQmM)
+
+*Click the badge above to watch Sentinel stream 2,000 concurrent queries over a multiplexed connection pool with live wire filtering metrics.*
+
 ## Prerequisites
 
 - Node.js 18+
