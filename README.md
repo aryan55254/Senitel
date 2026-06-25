@@ -40,7 +40,7 @@ Blocked queries never reach any instance. The client driver receives a valid PG 
 
 ## Benchmark Results
 
-![Benchmark Results](./public/image%20copy.png)
+![Benchmark Results](./public/%20image_copy.png)
 
 The built-in benchmark suite evaluates:
 1. **Allowed Protocol Queries**: Validates SSL Handshakes and startup sequence parsing.
